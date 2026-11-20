@@ -65,7 +65,7 @@ function detectLanAddress() {
     return candidates[0].address;
 }
 
-const HOST = envString('ICQ_HOST', '192.168.0.20');
+const HOST = envString('ICQ_HOST', '');
 const BOS_ADDRESS = envString('ICQ_BOS_ADDRESS', isWildcardHost(HOST) ? detectLanAddress() : HOST);
 
 const DEBUG_PACKETS = envBool('ICQ_DEBUG_PACKETS', false);
@@ -98,7 +98,7 @@ const config = {
     REGISTRATION_ENABLED: envBool('ICQ_REGISTRATION_ENABLED', true),
     MIN_PASSWORD_LENGTH: envInt('ICQ_MIN_PASSWORD_LENGTH', 4),
     MAX_PASSWORD_LENGTH: envInt('ICQ_MAX_PASSWORD_LENGTH', 64),
-    UIN_MIN: envInt('ICQ_UIN_MIN', 100),
+    UIN_MIN: envInt('ICQ_UIN_MIN', 10000),
     UIN_MAX: envInt('ICQ_UIN_MAX', 999999),
     MAX_OFFLINE_MESSAGES: envInt('ICQ_MAX_OFFLINE_MESSAGES', 200),
     MAX_OFFLINE_AGE_DAYS: envInt('ICQ_MAX_OFFLINE_AGE_DAYS', 30),
@@ -116,7 +116,7 @@ const config = {
     // ── Админ-панель ──────────────────────────────────────
     // Значение по умолчанию — заведомо временное, сервер предупредит в лог.
     ADMIN_USER: envString('ICQ_ADMIN_USER', 'admin'),
-    ADMIN_PASS: envString('ICQ_ADMIN_PASS', 'testserver'),
+    ADMIN_PASS: envString('ICQ_ADMIN_PASS', 'changethis'),
     ADMIN_PANEL_ENABLED: envBool('ICQ_ADMIN_PANEL_ENABLED', true),
 
     // ── Таймауты и лимиты соединений ──────────────────────
