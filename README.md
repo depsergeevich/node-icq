@@ -1,4 +1,4 @@
-# node-icq-server
+# node-icq
 A standalone ICQ server written in pure JavaScript. It implements the OSCAR protocol (FLAP/SNAC/TLV), authentication, SSI contact list, message exchange, and White Pages profiles.
 
 ## Features
