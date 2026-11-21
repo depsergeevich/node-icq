@@ -1,24 +1,5 @@
 'use strict';
-/**
- * Криптографические утилиты.
- *
- * Хранение паролей в проекте двухслойное:
- *   1) users.password        — PBKDF2-SHA256 хеш. Это основной верификатор:
- *                              через него проверяется пароль там, где клиент
- *                              присылает его открытым текстом (веб-регистрация,
- *                              ICQ HTTP API в части "пароль = хеш", CLI).
- *   2) users.password_secure — AES-256-GCM шифротекст того же пароля.
- *                              Нужен потому, что протокол OSCAR требует сам
- *                              пароль: XOR Roasting сравнивает его напрямую, а
- *                              BUCP/MD5 считает md5(пароль), HTTP API считает
- *                              HMAC-SHA256(пароль, challenge). Хранить только
- *                              необратимый хеш и сохранить эти три механизма
- *                              невозможно.
- *
- * Мастер-ключ берётся из ICQ_MASTER_KEY / config.AUTH_MASTER_KEY, иначе
- * генерируется один раз и кладётся в .authkey (в .gitignore).
- * Утечка одного лишь файла БД больше не раскрывает пароли.
- */
+
 
 const crypto = require('crypto');
 const fs = require('fs');
@@ -36,9 +17,9 @@ function toBuffer(value) {
     return Buffer.isBuffer(value) ? value : Buffer.from(String(value == null ? '' : value), 'utf8');
 }
 
-// ───────────────────────────────────────────
-//  Пароли: PBKDF2-SHA256
-// ───────────────────────────────────────────
+
+
+
 
 function hashPassword(plain, iterations) {
     const salt = crypto.randomBytes(16);
@@ -77,9 +58,9 @@ function passwordNeedsRehash(stored, iterations) {
     return Number.parseInt(stored.split('$')[2], 10) < iterations;
 }
 
-// ───────────────────────────────────────────
-//  Обратимое шифрование (эскорт-слой для OSCAR)
-// ───────────────────────────────────────────
+
+
+
 
 function deriveKey(secret) {
     return crypto.scryptSync(toBuffer(secret), 'node-icq-server/master-key', KEY_BYTES);
@@ -93,7 +74,7 @@ function encryptSecret(plain, key) {
     return [SEC_PREFIX, iv.toString('base64'), tag.toString('base64'), body.toString('base64')].join('$');
 }
 
-/** Возвращает null, если данных нет, формат неверный или ключ не тот. */
+
 function decryptSecret(stored, key) {
     if (typeof stored !== 'string' || !stored) return null;
 
@@ -113,7 +94,7 @@ function decryptSecret(stored, key) {
         decipher.setAuthTag(tag);
         return Buffer.concat([decipher.update(body), decipher.final()]).toString('utf8');
     } catch {
-        return null; // битый шифротекст или сменился мастер-ключ
+        return null; 
     }
 }
 
@@ -121,9 +102,9 @@ function isEncryptedSecret(value) {
     return typeof value === 'string' && value.startsWith(`${SEC_PREFIX}$`) && value.split('$').length === 4;
 }
 
-// ───────────────────────────────────────────
-//  Мастер-ключ
-// ───────────────────────────────────────────
+
+
+
 
 let masterKeyCache = null;
 
@@ -131,15 +112,15 @@ function loadOrCreateKeyFile(file) {
     try {
         const saved = fs.readFileSync(file, 'utf8').trim();
         if (saved.length >= 32) return { secret: saved, source: file };
-    } catch { /* файла нет — создадим ниже */ }
+    } catch {  }
 
     const generated = crypto.randomBytes(32).toString('hex');
     fs.writeFileSync(file, generated, { mode: 0o600 });
-    try { fs.chmodSync(file, 0o600); } catch { /* Windows: права не меняются */ }
+    try { fs.chmodSync(file, 0o600); } catch {  }
     return { secret: generated, source: `${file} (создан автоматически)` };
 }
 
-/** Ленивая инициализация: файл .authkey создаётся только когда реально понадобился. */
+
 function getMasterKey(explicitSecret, keyFile) {
     if (masterKeyCache) return masterKeyCache;
 
@@ -161,11 +142,11 @@ function resetMasterKeyCache() {
     masterKeyCache = null;
 }
 
-// ───────────────────────────────────────────
-//  Сравнение и генерация токенов
-// ───────────────────────────────────────────
 
-/** Сравнение строк за постоянное время (устойчиво к разной длине). */
+
+
+
+
 function safeEqual(a, b) {
     const da = crypto.createHash('sha256').update(toBuffer(a)).digest();
     const db = crypto.createHash('sha256').update(toBuffer(b)).digest();

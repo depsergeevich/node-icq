@@ -1,17 +1,5 @@
 'use strict';
-/**
- * Аутентификация на сервере AUTH (порт 5190) и регистрация аккаунтов.
- *
- * Два способа входа, оба требуют сам пароль, а не его хеш:
- *   - XOR Roasting (ICQ 2000 / QIP 2005 / Jimm / QIP PDA) — пароль приходит
- *     зашифрованным фиксированным XOR-массивом, сервер его декодирует;
- *   - BUCP/MD5 (ICQ Infium / Pidgin / QIP 2012) — клиент шлёт
- *     md5(authKey + md5(пароль) + "AOL Instant Messenger (SM)").
- *
- * Поэтому оба пути работают через getProtocolSecret(), который достаёт
- * пароль из AES-шифротекста в БД, а не из открытой колонки.
- * PBKDF2-хеш при этом остаётся основным верификатором (см. database.js).
- */
+
 
 const crypto = require('crypto');
 const db = require('./database');
@@ -19,9 +7,9 @@ const security = require('./security');
 const { OscarBuilder, parseTLVs } = require('./oscar');
 const config = require('./config');
 
-// ═══════════════════════════════════════════
-//  XOR Roasting (QIP 2005, ICQ 2000)
-// ═══════════════════════════════════════════
+
+
+
 
 const ROAST = Buffer.from([
     0xF3, 0x26, 0x81, 0xC4, 0x39, 0x86, 0xDB, 0x92,
@@ -42,15 +30,15 @@ function md5(data) {
     return crypto.createHash('md5').update(data).digest();
 }
 
-/** Никогда не печатаем пароль целиком, даже в отладочном логе. */
+
 function maskSecret(value) {
     if (typeof value !== 'string' || value.length === 0) return '(empty)';
     return `${'*'.repeat(Math.min(8, value.length))} (${value.length} chars)`;
 }
 
 const Auth = {
-    keys: new Map(),           // uin → временный authKey для BUCP
-    pendingCookies: new Map(), // hex(cookie) → uin
+    keys: new Map(),           
+    pendingCookies: new Map(), 
 
     issueCookie(uin, bytes = 256) {
         const cookie = security.randomToken(bytes);
@@ -69,7 +57,7 @@ const Auth = {
         return entry.uin;
     },
 
-    /** Периодическая уборка истёкших cookie — держит память в узде. */
+    
     sweepCookies() {
         const now = Date.now();
         let removed = 0;
@@ -79,7 +67,7 @@ const Auth = {
         return removed;
     },
 
-    // ── Проверка пароля (XOR и MD5) ──
+    
     async checkCredentials(uin, tlvs) {
         const md5Hash = tlvs[0x0025];
         const roasted = tlvs[0x0002];
@@ -120,20 +108,20 @@ const Auth = {
         console.log(`\x1b[33m[AUTH]\x1b[0m ${method} для ${uin}: ${ok ? '\x1b[32mOK' : '\x1b[31mFAIL'}\x1b[0m`);
 
         if (ok) {
-            // Успешный вход по протоколу — хороший момент освежить эскорт-слой.
-            try { await db.ensureProtocolSecret(uin, plain); } catch (e) { /* не критично */ }
+            
+            try { await db.ensureProtocolSecret(uin, plain); } catch (e) {  }
         }
         return ok;
     },
 
-    // ── BUCP SNAC обработка ──
+    
     async handlePacket(session, snac) {
         if (snac.subtype === 0x0004) {
             await this.handleRegistration(session, snac);
             return;
         }
 
-        // SNAC(0x17, 0x06) — запрос ключа
+        
         if (snac.subtype === 0x0006) {
             let uin = '';
             const tlvs = parseTLVs(snac.data);
@@ -156,7 +144,7 @@ const Auth = {
                 new OscarBuilder().u16(keyBuf.length).raw(keyBuf).build());
         }
 
-        // SNAC(0x17, 0x02) — MD5 логин
+        
         if (snac.subtype === 0x0002) {
             const tlvs = parseTLVs(snac.data);
             const uinTlv = tlvs[0x0001];
@@ -186,21 +174,21 @@ const Auth = {
         }
     },
 
-    // ═══════════════════════════════════════════════
-    //  Обработка регистрации
-    //
-    //  SNAC(0x17, 0x04) — CLI_REGISTRATION_REQUEST
-    //
-    //  Потоки клиентов:
-    //    ICQ 2000/2001 — SNAC(17,04), TLV 0x01 пустой + TLV 0x02 (пароль);
-    //    ICQ 2002/2003/Lite, Miranda, Pidgin — то же, UIN может быть желаемым.
-    //  Ответ успеха: SNAC(0x17, 0x05) с назначенным UIN (TLV 0x01) и cookie
-    //  (TLV 0x06). Ответ ошибки: SNAC(0x17, 0x01) с TLV 0x08 (код) и 0x04 (URL).
-    //
-    //  Коды ошибок:
-    //    0x0001 — неверный SNAC, 0x0006 — внутренняя ошибка,
-    //    0x0014 — свободных UIN нет / UIN занят.
-    // ═══════════════════════════════════════════════
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
     async handleRegistration(session, snac) {
         console.log('\x1b[35m[REGISTER]\x1b[0m Получен запрос регистрации');
@@ -271,17 +259,17 @@ const Auth = {
 
         console.log(`\x1b[32m[REGISTER]\x1b[0m UIN ${newUin} передан клиенту, cookie готов для BOS`);
 
-        // Соединение намеренно не закрываем: часть клиентов ждёт закрытия,
-        // часть сама переподключается на BOS.
+        
+        
     },
 
-    // ═══════════════════════════════════════════════
-    //  Регистрация через FLAP Channel 1
-    //
-    //  Старые клиенты (ICQ 99b, 2000a) шлют регистрацию прямо в первом
-    //  пакете: FLAP Ch1 = version(4) + TLV 0x01("") + TLV 0x02(пароль).
-    //  Пустой TLV 0x01 означает регистрацию, а не вход.
-    // ═══════════════════════════════════════════════
+    
+    
+    
+    
+    
+    
+    
 
     async handleChannel1Registration(session, tlvs) {
         if (!config.REGISTRATION_ENABLED) {
@@ -295,7 +283,7 @@ const Auth = {
         if (!passTlv) return false;
 
         const uin = uinTlv ? uinTlv.toString().trim() : '';
-        if (uin && uin.length > 0) return false; // непустой UIN — это вход
+        if (uin && uin.length > 0) return false; 
 
         const password = xorDecode(passTlv);
         if (password.length < config.MIN_PASSWORD_LENGTH) {
@@ -336,12 +324,8 @@ const Auth = {
         return true;
     },
 
-    // ── Ответы об ошибке ──
-    /**
-     * Ошибка для старого входа через FLAP Channel 1.
-     * Здесь нужен именно FLAP-канал 0x04 с TLV, а не SNAC(17,03):
-     * клиенты, заходящие без BUCP, не читают SNAC в этом ответе.
-     */
+    
+    
     sendChannel1Error(session, uin, errorCode) {
         const errBuf = Buffer.alloc(2);
         errBuf.writeUInt16BE(errorCode);

@@ -38,11 +38,11 @@ class OscarBuilder {
         } else if (data instanceof Uint8Array) {
             this.buffers.push(Buffer.from(data));
         }
-        // Игнорируем невалидные типы
+        
         return this;
     }
 
-    // TLV: поддержка string, number, Buffer, пустой
+    
     tlv(type, value) {
         let valBuf;
 
@@ -53,7 +53,7 @@ class OscarBuilder {
         } else if (typeof value === 'string') {
             valBuf = Buffer.from(value, 'utf8');
         } else if (typeof value === 'number') {
-            // Автоопределение: <= 0xFFFF → 2 байта, иначе 4
+            
             if (value <= 0xFFFF) {
                 valBuf = Buffer.alloc(2);
                 valBuf.writeUInt16BE(value);
@@ -77,7 +77,7 @@ class OscarBuilder {
     }
 
     build() {
-        // Защита: фильтруем только валидные буферы
+        
         const valid = this.buffers.filter(b => Buffer.isBuffer(b));
         return Buffer.concat(valid);
     }

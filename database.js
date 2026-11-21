@@ -1,13 +1,5 @@
 'use strict';
-/**
- * Слой доступа к SQLite + CLI-менеджер аккаунтов.
- *
- * Про пароли: users.password хранит PBKDF2-SHA256 хеш (основной верификатор),
- * users.password_secure — AES-256-GCM шифротекст, который нужен самому
- * протоколу OSCAR (XOR Roasting, BUCP/MD5, ICQ HTTP API). Подробности в
- * security.js. Старые БД, где пароль лежал открытым текстом, мигрируются
- * автоматически при первом запуске.
- */
+
 
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
@@ -45,21 +37,17 @@ function close() {
     return new Promise((resolve) => db.close(() => resolve()));
 }
 
-/**
- * Вычищает управляющие символы и ограничивает длину.
- * Раньше сюда попадали бинарные хвосты от неверно декодированных пакетов
- * анкеты — в БД сохранялось мусорное содержимое вроде "Ѓuser2".
- */
+
 function sanitizeText(value, maxLength = 255) {
     if (value === undefined || value === null) return '';
-    // eslint-disable-next-line no-control-regex
+    
     const cleaned = String(value).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim();
     return cleaned.slice(0, maxLength);
 }
 
-// ═══════════════════════════════════════════
-//  Инициализация схемы
-// ═══════════════════════════════════════════
+
+
+
 
 async function init({ migrate = true } = {}) {
     await run(`CREATE TABLE IF NOT EXISTS users (
@@ -73,11 +61,11 @@ async function init({ migrate = true } = {}) {
         age           INTEGER DEFAULT 0
     )`);
 
-    // Колонки, которых не было в исходной схеме. Миграция «на лету» — если
-    // колонки уже есть, ошибка игнорируется.
+    
+    
     const extraCols = ['profile', 'awayMsg', 'city', 'phone', 'homepage', 'about', 'password_secure', 'state', 'country', 'birth_year', 'birth_month', 'birth_day'];
     for (const col of extraCols) {
-        try { await run(`ALTER TABLE users ADD COLUMN ${col} TEXT`); } catch (e) { /* уже есть */ }
+        try { await run(`ALTER TABLE users ADD COLUMN ${col} TEXT`); } catch (e) {  }
     }
 
     await run(`CREATE TABLE IF NOT EXISTS ssi (
@@ -105,10 +93,7 @@ async function init({ migrate = true } = {}) {
     if (migrate) await migrateLegacyPasswords();
 }
 
-/**
- * Переводит пароли, сохранённые открытым текстом, в новый формат.
- * Идемпотентна: уже переведённые записи (pbkdf2$...) не трогает.
- */
+
 async function migrateLegacyPasswords() {
     const rows = await all("SELECT uin, password, password_secure FROM users WHERE password IS NOT NULL AND password <> ''");
 
@@ -117,9 +102,9 @@ async function migrateLegacyPasswords() {
 
     for (const row of rows) {
         if (security.isHashedPassword(row.password)) {
-            // Уже хеш. Эскорт-слой мог появиться позже (его отключали и
-            // включали обратно), но восстановить пароль из хеша нельзя —
-            // такие аккаунты смогут зайти только после смены пароля.
+            
+            
+            
             if (config.LEGACY_AUTH_ENABLED && !row.password_secure) withoutEscort++;
             continue;
         }
@@ -142,14 +127,11 @@ async function migrateLegacyPasswords() {
     return { converted, withoutEscort };
 }
 
-// ═══════════════════════════════════════════
-//  Пароли
-// ═══════════════════════════════════════════
 
-/**
- * Сохраняет пароль в оба слоя (если разрешён эскорт-слой).
- * @returns {boolean} признак, что эскорт-слой записан.
- */
+
+
+
+
 function buildPasswordRecord(plain) {
     const hash = security.hashPassword(plain, config.PBKDF2_ITERATIONS);
     const secret = config.LEGACY_AUTH_ENABLED
@@ -158,18 +140,14 @@ function buildPasswordRecord(plain) {
     return { hash, secret };
 }
 
-/** Основная проверка: по PBKDF2-хешу. Возвращает bool. */
+
 async function verifyUserPassword(uin, plain) {
     const user = await get('SELECT password FROM users WHERE uin = ?', [uin]);
     if (!user || !user.password) return false;
     return security.verifyPassword(plain, user.password);
 }
 
-/**
- * Проверка для протокольных путей OSCAR, где нужен сам пароль
- * (XOR Roasting, BUCP/MD5, ICQ HTTP API).
- * @returns {string|null} пароль или null, если проверить нечем.
- */
+
 async function getProtocolSecret(uin) {
     if (!config.LEGACY_AUTH_ENABLED) return null;
 
@@ -188,10 +166,7 @@ async function changePassword(uin, plain) {
     return { uin, success: true };
 }
 
-/**
- * После успешного протокольного входа есть шанс освежить эскорт-слой,
- * если сменился мастер-ключ или его не было.
- */
+
 async function ensureProtocolSecret(uin, plain) {
     if (!config.LEGACY_AUTH_ENABLED) return;
     const user = await get('SELECT password_secure FROM users WHERE uin = ?', [uin]);
@@ -202,9 +177,9 @@ async function ensureProtocolSecret(uin, plain) {
     await run('UPDATE users SET password_secure = ? WHERE uin = ?', [secret, uin]);
 }
 
-// ═══════════════════════════════════════════
-//  SSI
-// ═══════════════════════════════════════════
+
+
+
 
 async function getSSI(uin) {
     return all('SELECT * FROM ssi WHERE uin = ?', [uin]);
@@ -225,9 +200,9 @@ async function getSSIBuddies(uin) {
     return all('SELECT name FROM ssi WHERE uin = ? AND type = 0 AND name <> \'\'', [uin]);
 }
 
-// ═══════════════════════════════════════════
-//  Поиск
-// ═══════════════════════════════════════════
+
+
+
 
 async function searchByUIN(targetUin) {
     return get('SELECT uin, nickname, firstname, lastname, email, gender, age, city, phone, homepage, about, state, country, birth_year, birth_month, birth_day FROM users WHERE uin = ?', [targetUin]);
@@ -276,7 +251,7 @@ async function searchByDetails(criteria = {}) {
     return all(`SELECT ${PUBLIC_FIELDS} FROM users WHERE ${conditions.join(' AND ')} LIMIT 40`, params);
 }
 
-// Одно произвольное ключевое слово сразу по нескольким полям (TLV 0x0226).
+
 async function searchByKeyword(keyword) {
     if (!keyword) return [];
     const q = `%${keyword}%`;
@@ -292,9 +267,9 @@ async function searchByKeyword(keyword) {
     );
 }
 
-// ═══════════════════════════════════════════
-//  Офлайн-сообщения
-// ═══════════════════════════════════════════
+
+
+
 
 async function storeOffline(sender, recipient, message) {
     const text = sanitizeText(message, 4096);
@@ -303,8 +278,8 @@ async function storeOffline(sender, recipient, message) {
     await run('INSERT INTO offline (sender, recipient, message, ts) VALUES (?,?,?,?)',
         [sanitizeText(sender, 32), sanitizeText(recipient, 32), text, Date.now() / 1000]);
 
-    // Очередь каждому адресату ограничена по размеру и по возрасту —
-    // иначе один спамер забьёт БД.
+    
+    
     await run(`DELETE FROM offline WHERE recipient = ? AND id NOT IN (
                     SELECT id FROM offline WHERE recipient = ? ORDER BY ts DESC LIMIT ?)`,
         [recipient, recipient, config.MAX_OFFLINE_MESSAGES]);
@@ -319,7 +294,7 @@ async function getOffline(recipient) {
     const rows = await all('SELECT * FROM offline WHERE recipient = ? ORDER BY ts', [recipient]);
     if (rows.length === 0) return rows;
 
-    // Удаляем пачкой по id — защита от гонки на повторную выдачу.
+    
     const chunkSize = 200;
     for (let i = 0; i < rows.length; i += chunkSize) {
         const ids = rows.slice(i, i + chunkSize).map(r => r.id).join(',');
@@ -328,9 +303,9 @@ async function getOffline(recipient) {
     return rows;
 }
 
-// ═══════════════════════════════════════════
-//  Регистрация
-// ═══════════════════════════════════════════
+
+
+
 
 async function getNextUIN() {
     const row = await get(
@@ -348,13 +323,10 @@ async function getNextUIN() {
         if (!exists) return uin.toString();
     }
 
-    return null; // свободных UIN нет
+    return null; 
 }
 
-/**
- * @param {string} password открытый пароль (сразу хешируется и шифруется)
- * @param {{uin?:string, nickname?:string, firstname?:string, lastname?:string, email?:string}} opts
- */
+
 async function registerUser(password, opts = {}) {
     if (typeof password !== 'string' || password.length < config.MIN_PASSWORD_LENGTH) {
         return { error: `Password must be at least ${config.MIN_PASSWORD_LENGTH} characters` };
@@ -386,7 +358,7 @@ async function registerUser(password, opts = {}) {
     const { hash, secret } = buildPasswordRecord(password);
 
     try {
-        // Единственная точка записи пароля при регистрации — гонки за UIN нет.
+        
         await run(
             `INSERT INTO users (uin, password, password_secure, nickname, firstname, lastname, email)
              VALUES (?,?,?,?,?,?,?)`,
@@ -411,9 +383,9 @@ async function deleteUser(uin) {
     await run('DELETE FROM offline WHERE recipient = ? OR sender = ?', [target, target]);
 }
 
-// ═══════════════════════════════════════════
-//  CLI
-// ═══════════════════════════════════════════
+
+
+
 
 const USAGE = `
 ICQ Database Manager
@@ -526,21 +498,21 @@ if (require.main === module) {
 module.exports = {
     init, run, get, all, close, sanitizeText,
 
-    // Пароли
+    
     verifyUserPassword, getProtocolSecret, changePassword, ensureProtocolSecret,
 
-    // SSI
+    
     getSSI, addSSI, deleteSSI, getSSIBuddies,
 
-    // Поиск
+    
     searchByUIN, searchByDetails, searchByKeyword,
 
-    // Офлайн
+    
     storeOffline, getOffline,
 
-    // Пользователи
+    
     getNextUIN, registerUser, deleteUser, PUBLIC_FIELDS,
 
-    // Схема
+    
     migrateLegacyPasswords,
 };

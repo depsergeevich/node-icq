@@ -1,14 +1,4 @@
 'use strict';
-/**
- * Веб-часть: публичная регистрация, админ-панель и ICQ HTTP API
- * (эндпоинты /auth/getChallenge, /auth/clientLogin, /aim/startOSCARSession —
- * их ожидают ICQ 7/8 и мобильные клиенты).
- *
- * Что здесь сознательно не делается:
- *   - CORS "*" по умолчанию (закрыт, включается явно через CORS_ALLOW_ORIGIN);
- *   - подстановка полей БД в HTML без экранирования;
- *   - сравнение пароля открытым текстом (только HMAC-через-эскорт-слой).
- */
 
 const http = require('http');
 const https = require('https');
@@ -22,24 +12,16 @@ const security = require('./security');
 const Auth = require('./auth');
 const { KeyedRateLimiter } = require('./ratelimit');
 
-// ───────────────────────────────────────────
-//  Состояние HTTP-серверов
-// ───────────────────────────────────────────
-
 let serverRef = null;
 let httpServer = null;
 let httpsServer = null;
 
-const HTTP_CHALLENGES = new Map(); // tid → { challenge, uin, expiresAt }
-const HTTP_TOKENS = new Map();     // token → { uin, expiresAt }
+const HTTP_CHALLENGES = new Map();
+const HTTP_TOKENS = new Map();
 const HTTP_RATE = new KeyedRateLimiter(config.HTTP_RATE);
 
 const CHALLENGE_TTL_MS = 60 * 1000;
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
-
-// ═══════════════════════════════════════════
-//  Экранирование HTML
-// ═══════════════════════════════════════════
 
 function escapeHtml(value) {
     if (value === undefined || value === null) return '';
@@ -50,10 +32,6 @@ function escapeHtml(value) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 }
-
-// ═══════════════════════════════════════════
-//  Оформление
-// ═══════════════════════════════════════════
 
 const CSS = `
     body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; }
@@ -197,10 +175,6 @@ async function adminUsers() {
         <tbody>${rows || '<tr><td colspan="4">Аккаунтов нет</td></tr>'}</tbody></table></div>`;
 }
 
-// ═══════════════════════════════════════════
-//  Аутентификация админки
-// ═══════════════════════════════════════════
-
 function checkAdminAuth(req) {
     if (!config.ADMIN_PANEL_ENABLED) return false;
 
@@ -217,8 +191,6 @@ function checkAdminAuth(req) {
     const user = creds.slice(0, separator);
     const pass = creds.slice(separator + 1);
 
-    // Обе проверки выполняются всегда: сравнение за постоянное время по
-    // хешам плюс неодинаковое время ответа на разные логины.
     const userOk = security.safeEqual(user, config.ADMIN_USER);
     const passOk = security.safeEqual(pass, config.ADMIN_PASS);
     return userOk && passOk;
@@ -231,10 +203,6 @@ function requestAuth(res) {
     });
     res.end('Access denied');
 }
-
-// ═══════════════════════════════════════════
-//  Тело запроса с ограничением размера
-// ═══════════════════════════════════════════
 
 function readBody(req) {
     return new Promise((resolve, reject) => {
@@ -263,7 +231,6 @@ function readBody(req) {
     });
 }
 
-/** Разбор тела в формате XML — так его шлют настоящие клиенты ICQ HTTP API. */
 function parseXmlFields(raw) {
     const fields = {};
     const tag = /<([A-Za-z0-9_:-]+)>([^<]*)<\/\1>/g;
@@ -284,7 +251,6 @@ async function parseBody(req) {
         try { return JSON.parse(raw); } catch (e) { return {}; }
     }
 
-    // ICQ 7/8 и мобильные клиенты шлют <response><data><uin>…</uin><pwd>…
     if (contentType.includes('xml') || raw.trimStart().startsWith('<')) {
         return parseXmlFields(raw);
     }
@@ -297,14 +263,10 @@ async function parseBody(req) {
         const value = eq < 0 ? '' : pair.slice(eq + 1);
         try {
             params[decodeURIComponent(key.replace(/\+/g, ' '))] = decodeURIComponent(value.replace(/\+/g, ' '));
-        } catch { /* битая кодировка — пропускаем поле */ }
+        } catch {  }
     }
     return params;
 }
-
-// ═══════════════════════════════════════════
-//  Ответы
-// ═══════════════════════════════════════════
 
 function sendXml(res, statusCode, xml) {
     res.writeHead(statusCode, {
@@ -323,10 +285,6 @@ function apiError(statusCode, code, text) {
     return `<response xmlns="https://api.login.aol.com"><statuscode>${statusCode}</statuscode><statustext>${escapeHtml(text)}</statustext></response>`;
 }
 
-// ═══════════════════════════════════════════
-//  Уборка просроченных challenge и токенов
-// ═══════════════════════════════════════════
-
 function sweepHttpState() {
     const now = Date.now();
     for (const [key, entry] of HTTP_CHALLENGES) {
@@ -337,17 +295,12 @@ function sweepHttpState() {
     }
 }
 
-// ═══════════════════════════════════════════
-//  Маршруты
-// ═══════════════════════════════════════════
-
 async function handleRoutes(req, res, parsedUrl) {
     const rawPath = parsedUrl.pathname || '';
     const path = rawPath.replace(/\/+$/, '');
     const query = parsedUrl.searchParams;
     const method = req.method;
 
-    // ── Публичная страница регистрации ──
     if (method === 'GET' && (path === '' || path === '/' || path === '/register')) {
         if (!config.REGISTRATION_ENABLED) {
             res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -357,7 +310,6 @@ async function handleRoutes(req, res, parsedUrl) {
         return res.end(layout('Регистрация', publicRegistration()));
     }
 
-    // ── Регистрация через API ──
     if (path === '/api/register') {
         if (method !== 'POST') return sendJson(res, 405, { success: false, error: 'Method not allowed' });
 
@@ -375,8 +327,6 @@ async function handleRoutes(req, res, parsedUrl) {
             return sendJson(res, 400, { success: false, error: `Password must be at most ${config.MAX_PASSWORD_LENGTH} characters` });
         }
 
-        // UIN выдаёт база: единая точка выделения, проверка диапазона и
-        // защита от гонки. Раньше здесь считался MAX(uin)+1 в обход этих правил.
         const result = await db.registerUser(password, {
             nickname: data.nickname,
             email: data.email
@@ -390,7 +340,6 @@ async function handleRoutes(req, res, parsedUrl) {
         return sendJson(res, 200, { success: true, uin: result.uin });
     }
 
-    // ── ICQ HTTP API ──
     if (path === '/auth/getChallenge') {
         if (method !== 'POST') return sendXml(res, 405, apiError(405, 'Method not allowed'));
 
@@ -412,8 +361,6 @@ async function handleRoutes(req, res, parsedUrl) {
         const clientHash = data.pwd ?? data.password;
         const tid = data.tid ? String(data.tid) : null;
 
-        // HTTP API присылает HMAC-SHA256(пароль, challengeword), поэтому нужен
-        // сам пароль — берём его из эскорт-слоя, а не сравниваем в лоб.
         const plain = uin ? await db.getProtocolSecret(uin) : null;
 
         let success = false;
@@ -425,7 +372,7 @@ async function handleRoutes(req, res, parsedUrl) {
                 : [...HTTP_CHALLENGES.entries()];
 
             for (const [key, entry] of candidates) {
-                // challenge выдан для конкретного UIN — чужим UIN не подойдёт
+
                 if (entry.uin && entry.uin !== uin) continue;
 
                 const expected = crypto.createHmac('sha256', plain).update(entry.challenge).digest('base64');
@@ -462,11 +409,8 @@ async function handleRoutes(req, res, parsedUrl) {
             return sendXml(res, 401, `<response xmlns="https://api.oscar.aol.com"><statuscode>401</statuscode><statustext>Unauthorized</statustext></response>`);
         }
 
-        // Одноразовый токен: повторно использовать нельзя.
         HTTP_TOKENS.delete(token);
 
-        // Тот же механизм cookie, что и у OSCAR-клиента: cookie кладётся в
-        // Auth.pendingCookies и забирается при подключении к BOS.
         const cookie = Auth.issueCookie(entry.uin, 32);
         const bosHost = `${config.BOS_ADDRESS}:${config.BOS_PORT}`;
 
@@ -474,7 +418,6 @@ async function handleRoutes(req, res, parsedUrl) {
             `<data><host>${escapeHtml(bosHost)}</host><cookie>${cookie.toString('base64')}</cookie></data></response>`);
     }
 
-    // ── Админ-панель ──
     if (path === '/admin' || path.startsWith('/admin/')) {
         if (!checkAdminAuth(req)) return requestAuth(res);
 
@@ -526,25 +469,19 @@ async function handleRoutes(req, res, parsedUrl) {
     res.end('Not found');
 }
 
-// ═══════════════════════════════════════════
-//  HTTP / HTTPS серверы
-// ═══════════════════════════════════════════
-
 async function startWeb(mainServer) {
     serverRef = mainServer;
 
     const requestHandler = async (req, res) => {
         let parsedUrl;
         try {
-            // WHATWG URL вместо устаревшего url.parse(): без DeprecationWarning
-            // и без расхождений с браузерным разбором.
+
             parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
         } catch (e) {
             res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
             return res.end('Bad request');
         }
 
-        // Базовые заголовки безопасности — до любой ветки маршрутов.
         res.setHeader('X-Content-Type-Options', 'nosniff');
         res.setHeader('X-Frame-Options', 'DENY');
         res.setHeader('Referrer-Policy', 'no-referrer');
@@ -561,7 +498,6 @@ async function startWeb(mainServer) {
             return res.end();
         }
 
-        // Лимит запросов на IP.
         const ip = req.socket.remoteAddress || 'unknown';
         if (!HTTP_RATE.allow(ip)) {
             console.log(`\x1b[33m[WEB]\x1b[0m Превышен лимит запросов от ${ip}`);
@@ -597,7 +533,6 @@ async function startWeb(mainServer) {
 
     console.log(`\x1b[1mWEB\x1b[0m HTTP слушает ${config.WEB_HOST}:${config.WEB_PORT}`);
 
-    // HTTPS нужен старым клиентам, которым нельзя перенаправить на 8080.
     if (config.HTTPS_ENABLED) {
         const certPath = path.isAbsolute(config.CERT_FILE) ? config.CERT_FILE : path.join(__dirname, config.CERT_FILE);
         const keyPath = path.isAbsolute(config.KEY_FILE) ? config.KEY_FILE : path.join(__dirname, config.KEY_FILE);

@@ -7,13 +7,13 @@ function hexDump(data, prefix = '') {
     const width = 16;
     let lines = [];
     
-    // Красивый заголовок
+    
     console.log(`\x1b[36m${prefix}\x1b[0m (Len: ${data.length})`);
 
     for (let i = 0; i < data.length; i += width) {
         const chunk = data.subarray(i, i + width);
         
-        // Hex часть
+        
         const hex = [];
         for (let j = 0; j < width; j++) {
             if (j < chunk.length) {
@@ -23,10 +23,10 @@ function hexDump(data, prefix = '') {
             }
         }
         
-        // ASCII часть
+        
         let ascii = '';
         for (const byte of chunk) {
-            // Печатные символы
+            
             ascii += (byte >= 32 && byte <= 126) ? String.fromCharCode(byte) : '.';
         }
 

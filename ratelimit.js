@@ -1,17 +1,7 @@
 'use strict';
-/**
- * Ограничители нагрузки на основе «ведра токенов» (token bucket).
- *
- * Нужны для трёх вещей:
- *   - защита TCP-сервера от флуда пакетами/байтами с одного соединения;
- *   - защита аутентификации от перебора пароля;
- *   - защита HTTP-панели от флуда запросами.
- *
- * Счётчики живут в памяти процесса: при нескольких инстансах сервера лимит
- * нужно выносить в общее хранилище (Redis и т.п.).
- */
 
-/** Одно ведро: не более capacity токенов, восполнение refillPerSecond в секунду. */
+
+
 class TokenBucket {
     constructor({ capacity, refillPerSecond, now = () => Date.now() }) {
         if (!(capacity > 0)) throw new Error('TokenBucket: capacity должен быть > 0');
@@ -24,7 +14,7 @@ class TokenBucket {
         this._now = now;
     }
 
-    /** Списывает count токенов. false — значит, превышен лимит. */
+    
     tryRemove(count = 1) {
         const now = this._now();
         const elapsed = Math.max(0, now - this.updatedAt) / 1000;
@@ -39,11 +29,7 @@ class TokenBucket {
     }
 }
 
-/**
- * Набор ведер по ключу (IP, пара IP+UIN и т.п.).
- * Ограничивает размер памяти: при превышении maxKeys вытесняются самые
- * старые записи (Map в Node хранит пары в порядке вставки).
- */
+
 class KeyedRateLimiter {
     constructor({ capacity, refillPerSecond, maxKeys = 10000, now = () => Date.now() }) {
         this.maxKeys = maxKeys;
@@ -62,7 +48,7 @@ class KeyedRateLimiter {
         return bucket.tryRemove(count);
     }
 
-    /** Снимает штраф за успешное действие, чтобы легитимный клиент не копил долг. */
+    
     reset(key) {
         this._buckets.delete(key);
     }
@@ -85,11 +71,7 @@ class KeyedRateLimiter {
     }
 }
 
-/**
- * Периодическая уборка: снимает потолок памяти на длинноживущих
- * глобальных ограничителях (перебор пароля, HTTP-флуд).
- * Возвращает таймер с unref(), чтобы не держать процесс живым.
- */
+
 function startJanitor(limiters, intervalMs = 60000) {
     const timer = setInterval(() => {
         for (const limiter of limiters) {

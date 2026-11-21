@@ -2,9 +2,9 @@ const iconv = require('iconv-lite');
 const { OscarBuilder, parseTLVs } = require('./oscar');
 const db = require('./database');
 
-// ═══════════════════════════════════════════
-//  User Info & Helpers
-// ═══════════════════════════════════════════
+
+
+
 
 function packUserInfoOnline(session) {
     const uinBuf = Buffer.from(session.uin, 'utf8');
@@ -58,38 +58,38 @@ function writeLTLV(type, buf) {
     return Buffer.concat([head, buf]);
 }
 
-// ═══════════════════════════════════════════
-//  ICQ META (family 0x15) TLV field numbers
-//  Источник: официальная документация OSCAR/ICQ v7-v9,
-//  "SNAC(15,xx) - list of the TLVs" (sobek.hsdn.org).
-//  Десятичные номера — те, что использует сам протокол;
-//  шестнадцатеричные — как они идут на проводе (little-endian).
-// ═══════════════════════════════════════════
+
+
+
+
+
+
+
 const ICQ_FIELD = {
-    UIN: 310,          // 0x0136 — только в поиске
-    FIRSTNAME: 320,    // 0x0140
-    LASTNAME: 330,     // 0x014A
-    NICKNAME: 340,     // 0x0154
-    EMAIL: 350,        // 0x015E
-    AGE_RANGE: 360,    // 0x0168 — только в поиске (min+max word)
-    AGE: 370,          // 0x0172 — в анкете (одно значение)
-    GENDER: 380,       // 0x017C
-    CITY: 400,         // 0x0190
-    STATE: 410,        // 0x019A — aproximate, после CITY
-    COUNTRY: 420,      // 0x01A4 — aproximate, после STATE
-    BIRTH_YEAR: 372,   // 0x0174 — aproximate, после AGE
-    BIRTH_MONTH: 374,  // 0x0176 — aproximate
-    BIRTH_DAY: 376,    // 0x0178 — aproximate
-    HOMEPAGE_CAT: 530, // 0x0212
-    HOMEPAGE_URL: 531, // 0x0213 — hcombo: word category + sstring url
-    KEYWORD: 550,      // 0x0226 — только в поиске
-    ONLINE_ONLY: 560,  // 0x0230 — только в поиске
-    ABOUT: 600,        // 0x0258
-    PHONE: 630,        // 0x0276 — домашний телефон
+    UIN: 310,          
+    FIRSTNAME: 320,    
+    LASTNAME: 330,     
+    NICKNAME: 340,     
+    EMAIL: 350,        
+    AGE_RANGE: 360,    
+    AGE: 370,          
+    GENDER: 380,       
+    CITY: 400,         
+    STATE: 410,        
+    COUNTRY: 420,      
+    BIRTH_YEAR: 372,   
+    BIRTH_MONTH: 374,  
+    BIRTH_DAY: 376,    
+    HOMEPAGE_CAT: 530, 
+    HOMEPAGE_URL: 531, 
+    KEYWORD: 550,      
+    ONLINE_ONLY: 560,  
+    ABOUT: 600,        
+    PHONE: 630,        
 };
 
-// Разбор цепочки TLV внутри META_DATA-блока family 0x15.
-// Тип и длина — word little-endian, как явно указано в спецификации.
+
+
 function parseICQMetaTLVs(buf) {
     const map = {};
     let pos = 0;
@@ -104,34 +104,34 @@ function parseICQMetaTLVs(buf) {
     return map;
 }
 
-// ═══════════════════════════════════════════
-//  "Infium"/UTF8-запрос (SNAC 15,02/0x0FA0) — переписано по данным
-//  РЕАЛЬНОГО захвата трафика с публичного ICQ-сервера + подтверждено
-//  пользователем: и QIP 2005, и Infium умеют искать по одному полю
-//  (например, только по полу или только по возрасту), без ника/имени.
-//  Значит, "голое" поле в теле запроса — это не служебное сообщение,
-//  а настоящий критерий поиска. Реальный конверт (0x0FA0) может
-//  содержать одну из трёх форм:
-//   A) count(2, BE) + N записей [recLen(2, BE) + вложенный TLV-чейн
-//      с полем UIN] — массовая проверка статуса списка контактов
-//   B) один или несколько "голых" TLV(type, len, value) верхнего уровня,
-//      где type — код UIN → адресный запрос по конкретному
-//      пользователю (обычно после успешного 0x055F-поиска)
-//   C) то же самое (голые TLV), но с другими кодами полей (пол, возраст,
-//      город, ник и т.д., НЕ UIN) → полноценный поисковый запрос по
-//      критериям, аналогично классическому 0x055F, только другая,
-//      независимая нумерация полей и другой (network order) конверт
-//  Коды полей ниже взяты из функции mr_search_info_req в исходнике
-//  iserverd; GENDER(0x0082) независимо подтверждён реальным пакетом
-//  из захвата — остальные коды из той же таблицы, поэтому им тоже можно
-//  доверять с высокой вероятностью, хоть они пока не проверены дампом.
-//
-//  Важное исправление: слова заголовка — little-endian, а не network
-//  order (BE), как ошибочно предполагалось раньше по логике readUTF()
-//  из iserverd; захват показал, что LE даёт согласованную структуру
-//  (size = остаток длины после самого поля) в обоих подтверждённых
-//  случаях, тогда как BE давало бессмысленные значения.
-// ═══════════════════════════════════════════
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const INFIUM_FIELD = {
     UIN: 0x0032, EMAIL: 0x0050, FIRSTNAME: 0x0064, LASTNAME: 0x006E,
     NICKNAME: 0x0078, GENDER: 0x0082, LANGUAGE: 0x00FA, CITY: 0x00A0,
@@ -142,38 +142,38 @@ function skipInfiumHeader(buf) {
     let pos = 0;
     const need = (n) => pos + n <= buf.length;
     if (!need(6)) return null;
-    pos += 2;                                    // size (= остаток длины после этого поля)
-    pos += 2;                                    // junk
+    pos += 2;                                    
+    pos += 2;                                    
     const type2 = buf.readUInt16LE(pos); pos += 2;
     if (!need(12)) return null;
-    pos += 12;                                   // 6 x junk word
+    pos += 12;                                   
     if (type2 !== 0x0FD2) { if (!need(2)) return null; pos += 2; }
     if (!need(2)) return null;
-    pos += 2;                                    // req_type — дискриминатор операции, не расшифрован
+    pos += 2;                                    
     if (type2 !== 0x0FD2) { if (!need(2)) return null; pos += 2; }
     if (!need(4)) return null;
-    pos += 4;                                    // ещё одна пара type+size (в оригинале не используется)
+    pos += 4;                                    
     return pos;
 }
 
 function readInfiumString(valueBuf) {
     if (!valueBuf || valueBuf.length === 0) return '';
-    // Предположение (не подтверждено дампом для текстовых полей, в
-    // отличие от UIN, который точно ASCII): пробуем UTF-16LE, при
-    // неудаче — как обычный ASCII/UTF-8.
+    
+    
+    
     try {
         const s = valueBuf.toString('utf16le').replace(/\0+$/, '').trim();
         if (s && /^[\x20-\x7Eа-яА-ЯёЁ]*$/.test(s)) return s;
-    } catch (e) { /* ignore */ }
+    } catch (e) {  }
     return valueBuf.toString('utf8').replace(/\0+$/, '').trim();
 }
 
-// Разбирает тело запроса (после заголовка) и возвращает одно из:
-//   { kind: 'uins', uins: [...] }               — форма A или B (см. выше)
-//   { kind: 'criteria', criteria: {...} }        — форма C (поиск по полям)
-//   { kind: 'unknown' }                          — не распознано
+
+
+
+
 function parseInfiumBody(buf) {
-    // Форма A: count(2, BE) + N записей [recLen(2, BE) + вложенный TLV-чейн]
+    
     if (buf.length >= 2) {
         const count = buf.readUInt16BE(0);
         if (count > 0 && count < 200) {
@@ -201,9 +201,9 @@ function parseInfiumBody(buf) {
         }
     }
 
-    // Формы B/C: цепочка "голых" TLV(type, len, value) верхнего уровня
-    // (без count-обёртки). Разбираем ПОЛНОСТЬЮ и смотрим, что внутри:
-    // только UIN -> форма B, что-то ещё -> форма C (критерии поиска).
+    
+    
+    
     if (buf.length >= 4) {
         let pos = 0, ok = true;
         const fields = {};
@@ -218,14 +218,14 @@ function parseInfiumBody(buf) {
         if (ok && pos === buf.length && Object.keys(fields).length > 0) {
             const nonUinKeys = Object.keys(fields).map(Number).filter(t => t !== INFIUM_FIELD.UIN);
             if (nonUinKeys.length === 0) {
-                // Только UIN(ы) — форма B
+                
                 const uins = [];
                 const v = fields[INFIUM_FIELD.UIN];
                 const s = v.toString('ascii');
                 if (/^\d+$/.test(s)) uins.push(s);
                 if (uins.length > 0) return { kind: 'uins', uins };
             } else {
-                // Есть непустые поля кроме UIN — форма C, критерии поиска
+                
                 const criteria = {};
                 if (fields[INFIUM_FIELD.NICKNAME]) criteria.nickname = readInfiumString(fields[INFIUM_FIELD.NICKNAME]);
                 if (fields[INFIUM_FIELD.FIRSTNAME]) criteria.firstname = readInfiumString(fields[INFIUM_FIELD.FIRSTNAME]);
@@ -247,8 +247,8 @@ function parseInfiumBody(buf) {
     return { kind: 'unknown' };
 }
 
-// "sstring" по спеке: word-LE длина строки, затем сама ASCIIZ строка
-// (эта длина отдельная от внешней TLV.Length, но по факту совпадает с ней - 2).
+
+
 function readSString(valueBuf) {
     if (!valueBuf || valueBuf.length < 2) return '';
     const strLen = valueBuf.readUInt16LE(0);
@@ -263,21 +263,21 @@ function writeSString(str) {
     return Buffer.concat([len, data]);
 }
 
-// ═══════════════════════════════════════════
-//  Статус-байты и subtype-номера ответов family 0x15.
-//  Источник: реальный исходник iserverd (namikiri/iserverd,
-//  isdcore/v7_proto/snac_families/sn15_ext_messages.cpp) — референсная
-//  C++ реализация того же протокола от автора спецификации.
-// ═══════════════════════════════════════════
+
+
+
+
+
+
 const META_SUCCESS = 0x0A;
 const META_FAIL = 0x14;
-const META_EMPTY = 0x32; // "ничего не найдено" в ответах поиска (01AE)
+const META_EMPTY = 0x32; 
 
 const META_REQ = {
-    HOMEINFO: 0x04D0,   // запрос только домашней информации
-    SHORTINFO: 0x04BA,  // запрос краткой анкеты
-    FULLINFO: 0x04B2,   // запрос полной анкеты (внимание: НЕ 0x04BA!)
-    WP_UIN: 0x051F,     // запрос "как в поиске" по UIN
+    HOMEINFO: 0x04D0,   
+    SHORTINFO: 0x04BA,  
+    FULLINFO: 0x04B2,   
+    WP_UIN: 0x051F,     
 };
 
 const META_RESP = {
@@ -304,8 +304,8 @@ const META_SET_ACK = {
     NOTESINFO: 0x0082,
 };
 
-// Последовательный (не TLV!) разбор classic v7 set/get-пакетов —
-// это просто цепочка LNTS-строк и чисел в фиксированном порядке.
+
+
 function makeSeqReader(buf) {
     let pos = 0;
     return {
@@ -330,9 +330,9 @@ function mergeTLVs(session, rawTlvs) {
     for (const key of Object.keys(rawTlvs)) session.userTLVs.set(Number(key), rawTlvs[Number(key)]);
 }
 
-// ═══════════════════════════════════════════
-//  Главный обработчик BOS
-// ═══════════════════════════════════════════
+
+
+
 
 const BOS = {
     async handlePacket(session, snac, context) {
@@ -507,8 +507,8 @@ const BOS = {
                 msgText = tlvs[0x0005].subarray(8, 8 + tlvs[0x0005].readUInt16LE(6)).toString('utf8').replace(/\0/g, '');
             }
 
-            // Обрезаем и чистим текст: в офлайн-очередь не должны попадать
-            // управляющие символы и мегабайтные «сообщения».
+            
+            
             msgText = db.sanitizeText(msgText, 4096);
 
             console.log(`\x1b[32m[MSG]\x1b[0m ${session.uin} → ${recipient} : ${msgText}`);
@@ -573,7 +573,7 @@ const BOS = {
         
         if (snac.subtype === 0x0008 || snac.subtype === 0x0009 || snac.subtype === 0x000A) {
             const items = parseSSIItems(snac.data); const results =[];
-            // Колонка tlv создаётся один раз в db.init(), а не на каждой записи.
+            
             for (const item of items) {
                 const tlvBlob = item.tlvData ? Buffer.from(item.tlvData) : null;
                 try {
@@ -593,9 +593,9 @@ const BOS = {
         if (snac.subtype === 0x0012) { const buddies = await db.getSSIBuddies(session.uin); for (const b of buddies) session.watching.add(b.name); }
     },
 
-    // ═══════════════════════════════════════════════
-    //  ICQ ADVANCED DATA & FULL INFO
-    // ═══════════════════════════════════════════════
+    
+    
+    
 
     async handleICQ(session, snac, ctx) {
         if (snac.subtype !== 0x0002) return;
@@ -621,14 +621,14 @@ const BOS = {
             const subCmd = subData.readUInt16LE(0);
             const metaData = subData.subarray(2);
 
-            // 1. ЗАПРОС ТОЛЬКО ДОМАШНЕЙ ИНФОРМАЦИИ
+            
             if (subCmd === META_REQ.HOMEINFO) {
                 const user = await db.searchByUIN(session.uin);
                 this.sendHomeInfoV7(session, snac.reqId, ownerUin, seq, user);
                 return;
             }
 
-            // 2. КРАТКАЯ АНКЕТА (внимание: это 0x04BA, а не 0x04B2!)
+            
             if (subCmd === META_REQ.SHORTINFO) {
                 let targetUin = session.uin;
                 if (metaData.length >= 4) { const v = metaData.readUInt32LE(0); if (v > 0) targetUin = v.toString(); }
@@ -637,9 +637,9 @@ const BOS = {
                 return;
             }
 
-            // 3. ПОЛНАЯ АНКЕТА (0x04B2) — реальный протокол шлёт ОТДЕЛЬНЫМ
-            //    пакетом каждую секцию (home/more/email/hpage/work/about/
-            //    interests/affilations), а не единый TLV-блоб, как было раньше.
+            
+            
+            
             if (subCmd === META_REQ.FULLINFO) {
                 let targetUin = session.uin;
                 if (metaData.length >= 4) { const v = metaData.readUInt32LE(0); if (v > 0) targetUin = v.toString(); }
@@ -655,8 +655,8 @@ const BOS = {
                 return;
             }
 
-            // 4. "WHITE PAGES INFO BY UIN" (0x051F) — использует ТОТ ЖЕ формат,
-            //    что и результаты поиска (wp_found/01A4-01AE), а не формат анкеты.
+            
+            
             if (subCmd === META_REQ.WP_UIN) {
                 let targetUin = session.uin;
                 if (metaData.length >= 4) { const v = metaData.readUInt32LE(0); if (v > 0) targetUin = v.toString(); }
@@ -665,7 +665,7 @@ const BOS = {
                 return;
             }
 
-            // 5. СОХРАНЕНИЕ АНКЕТЫ, комбинированный TLV-формат ICQ Lite (0x0C3A/0x0D0E)
+            
             if (subCmd === 0x0C3A || subCmd === 0x0D0E) {
                 let pos = 0; const updates = {};
                 while(pos + 4 <= metaData.length) {
@@ -696,9 +696,9 @@ const BOS = {
                 return;
             }
 
-            // 6. СОХРАНЕНИЕ АНКЕТЫ ПО ЧАСТЯМ — формат классических v7-клиентов
-            //    (QIP и т.п.): не TLV, а последовательность LNTS-строк/чисел
-            //    в фиксированном порядке, зеркальном к сооветствующему Get-ответу.
+            
+            
+            
             if (subCmd === META_SET_REQ.HOMEINFO) {
                 const r = makeSeqReader(metaData);
                 const updates = {
@@ -707,9 +707,9 @@ const BOS = {
                     state: r.lnts(),
                 };
                 updates.phone = r.lnts();
-                r.lnts(); r.lnts(); r.lnts(); r.lnts(); // hfax, haddr, hcell, hzip2 — не храним
-                updates.country = r.u16(); // hcountry (word)
-                // gmt_offset(u8), e1publ(u8) — не храним
+                r.lnts(); r.lnts(); r.lnts(); r.lnts(); 
+                updates.country = r.u16(); 
+                
                 let ok = true;
                 try { await this.applyProfileUpdates(session.uin, updates); } catch (e) { ok = false; }
                 this.sendICQMetaReply(session, snac.reqId, ownerUin, seq, META_SET_ACK.HOMEINFO, Buffer.from([ok ? META_SUCCESS : META_FAIL]));
@@ -720,10 +720,10 @@ const BOS = {
                 const r = makeSeqReader(metaData);
                 const updates = { age: r.u16(), gender: r.u8() };
                 updates.homepage = r.lnts();
-                updates.birth_year = r.u16(); // byear
-                updates.birth_month = r.u8(); // bmonth
-                updates.birth_day = r.u8();   // bday
-                // lang1/2/3(u8) — не храним
+                updates.birth_year = r.u16(); 
+                updates.birth_month = r.u8(); 
+                updates.birth_day = r.u8();   
+                
                 let ok = true;
                 try { await this.applyProfileUpdates(session.uin, updates); } catch (e) { ok = false; }
                 this.sendICQMetaReply(session, snac.reqId, ownerUin, seq, META_SET_ACK.MOREINFO, Buffer.from([ok ? META_SUCCESS : META_FAIL]));
@@ -739,18 +739,18 @@ const BOS = {
                 return;
             }
 
-            // 7. ЗАПРОС XML-ДАННЫХ (0x0898) — устаревшая, малоиспользуемая часть
-            //    протокола (system vars/shared files и т.п. в ICQ Lite/2003+).
-            //    Даже зрелая референсная реализация (open-oscar-server) отвечает
-            //    сюда просто отказом (META_FAIL) с пустым XML — реальной логики
-            //    для этого под-протокола нет ни в одном изученном источнике.
+            
+            
+            
+            
+            
             if (subCmd === 0x0898) {
                 this.sendICQMetaReply(session, snac.reqId, ownerUin, seq, 0x08A2, Buffer.concat([Buffer.from([META_FAIL]), writeLNTS('')]));
                 return;
             }
 
-            // 3. ПОИСК ПО UIN (SNAC 15,02/0569 — tlv-based search by uin)
-            //    Формат подтверждён спецификацией: TLV(type=310/0x0136, len=4) с dword UIN.
+            
+            
             if (subCmd === 0x0569) {
                 let results = [];
                 if (metaData.length >= 8) {
@@ -762,10 +762,10 @@ const BOS = {
                 return;
             }
 
-            // 4. WHITEPAGES-ПОИСК, TLV-based (SNAC 15,02/055F — CLI_WHITE_PAGES_SEARCH2)
-            //    Разбор согласно официальной документации SNAC(15,02)/07D0/055F:
-            //    каждое поле — отдельный TLV(type LE, len LE), строки — "sstring"
-            //    (word-длина + asciiz), возрастной диапазон — два word (min,max).
+            
+            
+            
+            
             if (subCmd === 0x055F) {
                 const tlvChain = parseICQMetaTLVs(metaData);
                 const criteria = {};
@@ -798,10 +798,10 @@ const BOS = {
                 return;
             }
 
-            // 5. "INFIUM"/UTF8-ЗАПРОС (0x0FA0) — переписано по данным реального
-            //    захвата трафика + подтверждено: поиск по одному полю (пол,
-            //    возраст) — тоже законный сценарий, а не только bulk-проверка
-            //    статуса по списку UIN. См. комментарий у parseInfiumBody выше.
+            
+            
+            
+            
             if (subCmd === 0x0FA0) {
                 let results = [];
                 const bodyStart = skipInfiumHeader(metaData);
@@ -834,10 +834,10 @@ const BOS = {
         }
     },
 
-    // Формат подтверждён НЕЗАВИСИМО двумя разными реализациями (iserverd на C++
-    // и open-oscar-server на Go): SNAC(15,03)/07DA/01A4 (не последний найденный
-    // пользователь) и 01AE (последний). Статус-байт "ничего не найдено" — 0x32
-    // (в обоих источниках: META_EMPTY / ICQStatusCodeFail), а не 0x0A.
+    
+    
+    
+    
     sendQip2005SearchResult(session, reqId, ownerUin, seq, users, ctx) {
         if (!users || users.length === 0) {
             return this.sendICQMetaReply(session, reqId, ownerUin, seq, 0x01AE, Buffer.from([META_EMPTY]));
@@ -847,17 +847,17 @@ const BOS = {
             const isLast = idx === users.length - 1;
             const online = (ctx && ctx.sessions && ctx.sessions.has(String(user.uin))) ? 1 : 0;
 
-            // "Details" (ICQUserSearchRecord) — именно этот блок покрывается
-            // 16-битной длиной (followingSize). UsersLeft и padding-буфер идут
-            // ПОСЛЕ него и в эту длину НЕ входят (в исходнике open-oscar-server
-            // тег `oscar:"len_prefix=uint16"` стоит только на поле Details).
+            
+            
+            
+            
             const details = [];
             const uinBuf = Buffer.alloc(4); uinBuf.writeUInt32LE(parseInt(user.uin) || 0); details.push(uinBuf);
             details.push(writeLNTS(user.nickname));
             details.push(writeLNTS(user.firstname));
             details.push(writeLNTS(user.lastname));
             details.push(writeLNTS(user.email));
-            details.push(Buffer.from([0x00])); // authorization flag: 0 = авторизация не требуется
+            details.push(Buffer.from([0x00])); 
             const onlineBuf = Buffer.alloc(2); onlineBuf.writeUInt16LE(online); details.push(onlineBuf);
             details.push(Buffer.from([user.gender ? parseInt(user.gender) : 0]));
             const ageBuf = Buffer.alloc(2); ageBuf.writeUInt16LE(user.age ? parseInt(user.age) : 0); details.push(ageBuf);
@@ -867,10 +867,10 @@ const BOS = {
 
             const tail = [];
             if (isLast) { const leftBuf = Buffer.alloc(4); leftBuf.writeUInt32LE(0); tail.push(leftBuf); }
-            // Padding подтверждён open-oscar-server: 12 нулевых байт на
-            // промежуточных (01A4) пакетах — "allows intermediate search results
-            // to appear in ICQ 5"; 8 нулевых байт на последнем (01AE) —
-            // "fixes ICQ 5 search hanging".
+            
+            
+            
+            
             tail.push(Buffer.alloc(isLast ? 8 : 12));
 
             const payload = Buffer.concat([Buffer.from([META_SUCCESS]), sizeBuf, detailsBuf, Buffer.concat(tail)]);
@@ -878,9 +878,9 @@ const BOS = {
         });
     },
 
-    // Общий хелпер сохранения полей анкеты в БД (используется всеми Set-обработчиками).
-    // Значения прогоняются через sanitizeText: раньше сюда попадали бинарные
-    // хвосты от неверно декодированных пакетов, и мусор сохранялся в БД.
+    
+    
+    
     async applyProfileUpdates(uin, updates) {
         const limits = { nickname: 64, firstname: 64, lastname: 64, email: 128, city: 128, state: 64, country: 64, phone: 64, homepage: 256, about: 1024, birth_year: 4, birth_month: 2, birth_day: 2 };
         const keys = Object.keys(updates).filter(k => updates[k] !== undefined && updates[k] !== '');
@@ -898,14 +898,14 @@ const BOS = {
         console.log(`\x1b[35m[ПРОФИЛЬ]\x1b[0m ${uin} обновил анкету:`, keys);
     },
 
-    // ═══════════════════════════════════════════
-    //  Отправка анкеты по секциям (family 0x15).
-    //  Байтовые форматы подтверждены реальным исходником iserverd
-    //  (mr_send_short_info / mr_send_home_info / ... в sn15_ext_messages.cpp).
-    //  Поля, которых нет в нашей упрощённой схеме БД (state/fax/address/
-    //  zip/country/work-поля/interests/affilations/birthday/language),
-    //  заполняются пустыми/нулевыми значениями — протокол это допускает.
-    // ═══════════════════════════════════════════
+    
+    
+    
+    
+    
+    
+    
+    
 
     sendShortInfoV7(session, reqId, ownerUin, seq, user) {
         if (!user) return this.sendICQMetaReply(session, reqId, ownerUin, seq, META_RESP.SHORT, Buffer.from([META_FAIL]));
@@ -914,8 +914,8 @@ const BOS = {
         bufs.push(writeLNTS(user.firstname));
         bufs.push(writeLNTS(user.lastname));
         bufs.push(writeLNTS(user.email));
-        bufs.push(Buffer.from([0x00]));                             // auth
-        bufs.push(Buffer.from([0x00]));                             // padding
+        bufs.push(Buffer.from([0x00]));                             
+        bufs.push(Buffer.from([0x00]));                             
         bufs.push(Buffer.from([user.gender ? parseInt(user.gender) : 0]));
         this.sendICQMetaReply(session, reqId, ownerUin, seq, META_RESP.SHORT, Buffer.concat(bufs));
     },
@@ -930,24 +930,24 @@ const BOS = {
         bufs.push(writeLNTS(user.city));
         bufs.push(writeLNTS(user.state));
         bufs.push(writeLNTS(user.phone));
-        bufs.push(writeLNTS('')); bufs.push(writeLNTS('')); bufs.push(writeLNTS('')); // fax, address, cellular
-        bufs.push(writeLNTS('')); // zip
-        bufs.push(Buffer.from([(parseInt(user.country) || 0) & 0xFF, (parseInt(user.country) || 0) >> 8])); // country (word)
-        bufs.push(Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00])); // gmt, auth, webaware, dc_perm, e1publ
+        bufs.push(writeLNTS('')); bufs.push(writeLNTS('')); bufs.push(writeLNTS('')); 
+        bufs.push(writeLNTS('')); 
+        bufs.push(Buffer.from([(parseInt(user.country) || 0) & 0xFF, (parseInt(user.country) || 0) >> 8])); 
+        bufs.push(Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00])); 
         this.sendICQMetaReply(session, reqId, ownerUin, seq, META_RESP.HOME, Buffer.concat(bufs));
     },
 
     sendMoreInfoV7(session, reqId, ownerUin, seq, user) {
         if (!user) return this.sendICQMetaReply(session, reqId, ownerUin, seq, META_RESP.MORE, Buffer.from([META_FAIL]));
-        // ПОДТВЕРЖДЕНО РЕАЛЬНЫМ ТРАФИКОМ (захват с публичного ICQ-сервера,
-        // ответ 0x00DC на реальный запрос 0x04B2) — байт-в-байт совпадает
-        // именно с оригинальной раскладкой iserverd (включая "магические"
-        // константы из комментария /* wtf ? */ в исходнике), а НЕ с более
-        // понятной City/State/CountryCode/TimeZone раскладкой из
-        // open-oscar-server, на которую эта функция была ранее переделана.
-        // Реальный пакет закончился ровно на этих байтах — 24 байта, без
-        // остатка под City/State/CountryCode/TimeZone/padding. Возвращено
-        // к оригиналу.
+        
+        
+        
+        
+        
+        
+        
+        
+        
         const bufs = [Buffer.from([META_SUCCESS])];
         const ageBuf = Buffer.alloc(2); ageBuf.writeUInt16LE(user.age ? parseInt(user.age) : 0); bufs.push(ageBuf);
         bufs.push(Buffer.from([user.gender ? parseInt(user.gender) : 0]));
@@ -955,25 +955,25 @@ const BOS = {
         const by = parseInt(user.birth_year) || 0;
         const bm = parseInt(user.birth_month) || 0;
         const bd = parseInt(user.birth_day) || 0;
-        bufs.push(Buffer.from([by & 0xFF, by >> 8]));                 // birth year
-        bufs.push(Buffer.from([bm, bd]));        // birth month, birth day
-        bufs.push(Buffer.from([0x00, 0x00, 0x00]));  // lang1, lang2, lang3
-        // Магические байты из оригинала (назначение не задокументировано
-        // даже автором — см. комментарий /* wtf ? */ в sn15_ext_messages.cpp):
+        bufs.push(Buffer.from([by & 0xFF, by >> 8]));                 
+        bufs.push(Buffer.from([bm, bd]));        
+        bufs.push(Buffer.from([0x00, 0x00, 0x00]));  
+        
+        
         bufs.push(Buffer.from([0x00, 0x00, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]));
         this.sendICQMetaReply(session, reqId, ownerUin, seq, META_RESP.MORE, Buffer.concat(bufs));
     },
 
     sendEmailInfoV7(session, reqId, ownerUin, seq, user) {
         if (!user) return this.sendICQMetaReply(session, reqId, ownerUin, seq, META_RESP.EMAIL, Buffer.from([META_FAIL]));
-        // Дополнительных email2/email3 в нашей схеме нет — сообщаем "нет доп. адресов".
+        
         this.sendICQMetaReply(session, reqId, ownerUin, seq, META_RESP.EMAIL, Buffer.from([META_SUCCESS, 0x00]));
     },
 
     sendHpageInfoV7(session, reqId, ownerUin, seq, user) {
         if (!user) return this.sendICQMetaReply(session, reqId, ownerUin, seq, META_RESP.HPAGE, Buffer.from([META_FAIL]));
-        const bufs = [Buffer.from([META_SUCCESS, 0x00])]; // success, hpage_cf
-        bufs.push(Buffer.alloc(2)); // hpage_cat
+        const bufs = [Buffer.from([META_SUCCESS, 0x00])]; 
+        bufs.push(Buffer.alloc(2)); 
         bufs.push(writeLNTS(user.homepage));
         bufs.push(Buffer.from([0x00]));
         this.sendICQMetaReply(session, reqId, ownerUin, seq, META_RESP.HPAGE, Buffer.concat(bufs));
@@ -981,13 +981,13 @@ const BOS = {
 
     sendWorkInfoV7(session, reqId, ownerUin, seq, user) {
         if (!user) return this.sendICQMetaReply(session, reqId, ownerUin, seq, META_RESP.WORK, Buffer.from([META_FAIL]));
-        // Рабочих полей (город/компания/должность и т.д.) в нашей схеме нет — все пустые.
+        
         const bufs = [Buffer.from([META_SUCCESS])];
-        for (let i = 0; i < 6; i++) bufs.push(writeLNTS('')); // wcity,wstate,wphone,wfax,waddr,wzip2
-        bufs.push(Buffer.alloc(2)); // wcountry
-        for (let i = 0; i < 3; i++) bufs.push(writeLNTS('')); // wcompany, wdepart2, wtitle
-        bufs.push(Buffer.alloc(2)); // wocup
-        bufs.push(writeLNTS('')); // wpage
+        for (let i = 0; i < 6; i++) bufs.push(writeLNTS('')); 
+        bufs.push(Buffer.alloc(2)); 
+        for (let i = 0; i < 3; i++) bufs.push(writeLNTS('')); 
+        bufs.push(Buffer.alloc(2)); 
+        bufs.push(writeLNTS('')); 
         this.sendICQMetaReply(session, reqId, ownerUin, seq, META_RESP.WORK, Buffer.concat(bufs));
     },
 
@@ -1000,18 +1000,18 @@ const BOS = {
 
     sendInterestsInfoV7(session, reqId, ownerUin, seq, user) {
         if (!user) return this.sendICQMetaReply(session, reqId, ownerUin, seq, META_RESP.INTERESTS, Buffer.from([META_FAIL]));
-        // count_prefix=uint8 список (подтверждено open-oscar-server) — своих
-        // интересов не храним, поэтому просто пустой список (count=0).
+        
+        
         this.sendICQMetaReply(session, reqId, ownerUin, seq, META_RESP.INTERESTS, Buffer.from([META_SUCCESS, 0x00]));
     },
 
     sendAffilationsInfoV7(session, reqId, ownerUin, seq, user) {
         if (!user) return this.sendICQMetaReply(session, reqId, ownerUin, seq, META_RESP.AFFILATIONS, Buffer.from([META_FAIL]));
-        // Два count_prefix=uint8 списка (прошлое + текущее), оба пустые —
-        // структура подтверждена реальным трафиком. Но реальный пакет также
-        // содержит 5 дополнительных байт ПОСЛЕ обоих списков (00 00 01 00 00),
-        // которых у нас изначально не было — по аналогии с "магическими"
-        // байтами MoreInfo, добавлены как есть.
+        
+        
+        
+        
+        
         this.sendICQMetaReply(session, reqId, ownerUin, seq, META_RESP.AFFILATIONS,
             Buffer.from([META_SUCCESS, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00]));
     },
